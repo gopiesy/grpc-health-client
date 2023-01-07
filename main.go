@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"time"
 
 	health "github.com/gopiesy/grpc-health-server/proto"
 	"google.golang.org/grpc"
@@ -15,10 +16,10 @@ import (
 )
 
 var (
-	port = flag.Int("port", 9111, "Port on which gRPC health server should listen for TCP conn.")
+	port = flag.Int("port", 9111, "Port on which gRPC health client should Dial for TCP conn.")
 	root = flag.String("root", "./certs/cacert.pem", "root CA")
-	cert = flag.String("cert", "./certs/server.pem", "server cert")
-	key  = flag.String("key", "./certs/server.key", "server key")
+	cert = flag.String("cert", "./certs/client.pem", "client cert")
+	key  = flag.String("key", "./certs/client.key", "client key")
 )
 
 func main() {
@@ -52,7 +53,7 @@ func main() {
 	// Create a new TLS credentials based on the TLS configuration
 	cred := credentials.NewTLS(tlsConfig)
 
-	// Dial the gRPC server with the given credentials
+	// Dial to the gRPC server with the given credentials
 	conn, err := grpc.Dial(fmt.Sprintf("localhost:%d", *port), grpc.WithTransportCredentials(cred))
 	if err != nil {
 		log.Fatal(err)
@@ -69,11 +70,15 @@ func main() {
 
 	// Create the gRPC client
 	client := health.NewHealthClient(conn)
-	response, err := client.Check(context.Background(), request)
-	if err != nil {
-		log.Fatalf("Failed to receive response. %s.", err)
-	}
 
-	// Print out response from server
-	fmt.Println(response.Status)
+	for {
+		response, err := client.Check(context.Background(), request)
+		if err != nil {
+			log.Println("Failed to receive response:", err.Error())
+		} else {
+			fmt.Println(response.Status) // Print out response from server
+		}
+
+		<-time.After(5 * time.Second)
+	}
 }
